@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EsponjaRio — Plataforma de Áreas Verdes</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --verde-escuro: #1B4332;
+  --verde-medio: #2D6A4F;
+  --verde-claro: #52B788;
+  --verde-menta: #95D5B2;
+  --verde-suave: #D8F3DC;
+  --azul-alerta: #1565C0;
+  --laranja: #E76F51;
+  --amarelo: #F4A261;
+  --branco: #FAFFF8;
+  --cinza-claro: #F0F4F1;
+  --cinza-medio: #8A9E8F;
+  --texto: #1A2E1E;
+  --sombra: 0 4px 24px rgba(27,67,50,0.12);
+  --sombra-forte: 0 8px 40px rgba(27,67,50,0.22);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--branco);
+  color: var(--texto);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ── TELAS ── */
+.tela { display: none; width: 100%; height: 100vh; flex-direction: column; }
+.tela.ativa { display: flex; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--verde-escuro);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 56px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  z-index: 100;
+}
+.topbar-logo {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.topbar-logo span { color: var(--verde-menta); }
+.topbar-logo .leaf { font-size: 22px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.perfil-badge {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.perfil-badge:hover { background: rgba(255,255,255,0.2); }
+.topbar-icon {
+  width: 34px; height: 34px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 16px; cursor: pointer;
+  transition: all 0.2s;
+}
+.topbar-icon:hover { background: var(--verde-claro); }
+
+/* ── BOTTOMNAV ── */
+.bottomnav {
+  background: var(--verde-escuro);
+  display: flex;
+  height: 60px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  border: none;
+  background: none;
+  text-transform: uppercase;
+}
+.nav-item .icon { font-size: 20px; }
+.nav-item.ativo { color: var(--verde-menta); }
+.nav-item.ativo::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 20%; right: 20%;
+  height: 2px;
+  background: var(--verde-menta);
+  border-radius: 0 0 4px 4px;
+}
+.nav-item:hover { color: rgba(255,255,255,0.8); }
+
+/* ── CONTEÚDO SCROLLÁVEL ── */
+.conteudo {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ══════════════════════
+   TELA 1: INICIO / MAPA
+   ══════════════════════ */
+#tela-mapa .conteudo { padding: 0; }
+#mapa-leaflet { width: 100%; height: 100%; min-height: 400px; }
+
+.filtros-barra {
+  position: absolute;
+  top: 12px; left: 12px; right: 12px;
+  display: flex;
+  gap: 6px;
+  z-index: 999;
+  flex-wrap: wrap;
+}
+.filtro-btn {
+  background: white;
+  border: 1.5px solid var(--verde-suave);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  color: var(--verde-medio);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+  display: flex; align-items: center; gap: 4px;
+}
+.filtro-btn.ativo { background: var(--verde-medio); color: white; border-color: var(--verde-medio); }
+.filtro-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+.mapa-legenda {
+  position: absolute;
+  bottom: 12px; right: 12px;
+  background: white;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 11px;
+  box-shadow: var(--sombra);
+  z-index: 999;
+  min-width: 140px;
+}
+.mapa-legenda h4 { font-family: 'Syne', sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--cinza-medio); margin-bottom: 6px; }
+.legenda-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; color: var(--texto); font-weight: 500; }
+.legenda-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+.fab-reportar {
+  position: absolute;
+  bottom: 80px; right: 16px;
+  width: 52px; height: 52px;
+  background: var(--laranja);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 4px 20px rgba(231,111,81,0.45);
+  cursor: pointer;
+  z-index: 999;
+  transition: all 0.2s;
+  border: none;
+  color: white;
+}
+.fab-reportar:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(231,111,81,0.6); }
+
+.painel-stats {
+  position: absolute;
+  bottom: 12px; left: 12px;
+  background: var(--verde-escuro);
+  color: white;
+  border-radius: 14px;
+  padding: 12px 16px;
+  z-index: 999;
+  box-shadow: var(--sombra-forte);
+  min-width: 160px;
+}
+.painel-stats h4 { font-family: 'Syne', sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--verde-menta); margin-bottom: 8px; }
+.stat-linha { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 11px; }
+.stat-linha strong { font-size: 15px; color: var(--verde-menta); font-family: 'Syne', sans-serif; }
+
+/* popup do mapa */
+.popup-custom { font-family: 'DM Sans', sans-serif; min-width: 180px; }
+.popup-custom h3 { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.popup-custom .tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; margin-bottom: 6px; }
+.popup-custom p { font-size: 11px; color: #666; margin-bottom: 8px; line-height: 1.4; }
+.popup-btn { background: var(--verde-medio); color: white; border: none; border-radius: 8px; padding: 5px 12px; font-size: 11px; font-family: 'DM Sans', sans-serif; cursor: pointer; font-weight: 600; }
+
+/* ══════════════════════
+   TELA 2: REPORTE
+   ══════════════════════ */
+.reporte-header {
+  background: linear-gradient(135deg, var(--verde-escuro), var(--verde-medio));
+  padding: 20px;
+  color: white;
+}
+.reporte-header h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.reporte-header p { font-size: 13px; opacity: 0.75; }
+
+.reporte-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+.campo-grupo label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--cinza-medio);
+  margin-bottom: 6px;
+}
+.campo-select, .campo-textarea, .campo-input {
+  width: 100%;
+  background: var(--cinza-claro);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--texto);
+  transition: all 0.2s;
+  outline: none;
+}
+.campo-select:focus, .campo-textarea:focus, .campo-input:focus {
+  border-color: var(--verde-claro);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(82,183,136,0.15);
+}
+.campo-textarea { min-height: 80px; resize: none; }
+
+.tipo-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tipo-card {
+  background: var(--cinza-claro);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.tipo-card.selecionado { background: var(--verde-suave); border-color: var(--verde-claro); }
+.tipo-card:hover { border-color: var(--verde-menta); }
+.tipo-card .tipo-icon { font-size: 24px; margin-bottom: 4px; }
+.tipo-card .tipo-label { font-size: 11px; font-weight: 700; color: var(--verde-escuro); }
+
+.foto-area {
+  background: var(--cinza-claro);
+  border: 2px dashed var(--verde-menta);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.foto-area:hover { background: var(--verde-suave); }
+.foto-area .foto-icon { font-size: 28px; margin-bottom: 6px; }
+.foto-area p { font-size: 12px; color: var(--cinza-medio); }
+.foto-area.com-foto { background: var(--verde-suave); border-style: solid; border-color: var(--verde-claro); }
+
+.localizacao-box {
+  background: var(--verde-suave);
+  border: 1.5px solid var(--verde-menta);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--verde-escuro);
+  font-weight: 500;
+}
+
+.btn-enviar {
+  background: var(--verde-medio);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-enviar:hover { background: var(--verde-escuro); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(45,106,79,0.35); }
+
+/* ══════════════════════
+   TELA 3: MEUS REPORTES / HISTÓRICO
+   ══════════════════════ */
+.historico-header {
+  background: linear-gradient(135deg, #1a3a5c, var(--azul-alerta));
+  padding: 20px;
+  color: white;
+}
+.historico-header h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.historico-header p { font-size: 13px; opacity: 0.75; }
+
+.reporte-card {
+  background: white;
+  border-radius: 14px;
+  margin: 0 16px 12px;
+  box-shadow: var(--sombra);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1.5px solid transparent;
+}
+.reporte-card:first-of-type { margin-top: 16px; }
+.reporte-card:hover { transform: translateY(-2px); box-shadow: var(--sombra-forte); border-color: var(--verde-menta); }
+
+.reporte-card-header {
+  padding: 12px 14px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.reporte-card h3 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.reporte-card .endereco { font-size: 11px; color: var(--cinza-medio); }
+.status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+.status-pendente { background: #FFF3E0; color: #E65100; }
+.status-validado { background: #E8F5E9; color: #2E7D32; }
+.status-rejeitado { background: #FFEBEE; color: #C62828; }
+
+.reporte-card-footer {
+  border-top: 1px solid var(--cinza-claro);
+  padding: 8px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--cinza-medio);
+}
+.reporte-card-footer .tipo-tag { display: flex; align-items: center; gap: 4px; font-weight: 600; }
+
+/* ══════════════════════
+   TELA 4: VALIDAÇÃO TÉCNICA
+   ══════════════════════ */
+.tecnico-header {
+  background: linear-gradient(135deg, #2c1654, #6b21a8);
+  padding: 20px;
+  color: white;
+}
+.tecnico-header h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 2px; }
+.tecnico-header .subtitulo { font-size: 11px; opacity: 0.65; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+.fila-badge {
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+}
+.fila-badge .num { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; display: block; }
+
+.validacao-card {
+  background: white;
+  border-radius: 14px;
+  margin: 16px 16px 12px;
+  box-shadow: var(--sombra);
+  overflow: hidden;
+  border-left: 4px solid #6b21a8;
+}
+.validacao-card-header { padding: 14px; border-bottom: 1px solid var(--cinza-claro); }
+.validacao-card-header h3 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.validacao-card-header .meta { font-size: 11px; color: var(--cinza-medio); }
+
+.foto-preview {
+  width: 100%;
+  height: 130px;
+  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  position: relative;
+}
+.foto-label {
+  position: absolute;
+  bottom: 8px; left: 8px;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.validacao-card-body { padding: 14px; }
+.info-linha { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; font-size: 12px; }
+.info-linha .icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.info-linha .label { color: var(--cinza-medio); margin-right: 4px; }
+
+.acoes-validacao { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px 14px; }
+.btn-validar {
+  border: none;
+  border-radius: 10px;
+  padding: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn-aprovar { background: var(--verde-suave); color: var(--verde-escuro); }
+.btn-aprovar:hover { background: var(--verde-claro); color: white; }
+.btn-rejeitar { background: #FFEBEE; color: #C62828; }
+.btn-rejeitar:hover { background: #EF9A9A; color: white; }
+
+/* ══════════════════════
+   TELA 5: PAINEL GESTOR
+   ══════════════════════ */
+.gestor-header {
+  background: linear-gradient(135deg, #0d2137, #1a3a5c);
+  padding: 20px;
+  color: white;
+}
+.gestor-header h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 2px; }
+.gestor-header .subtitulo { font-size: 11px; opacity: 0.65; text-transform: uppercase; letter-spacing: 1px; }
+
+.icvm-card {
+  margin: 16px;
+  background: linear-gradient(135deg, var(--verde-escuro), var(--verde-medio));
+  border-radius: 16px;
+  padding: 18px;
+  color: white;
+  box-shadow: var(--sombra-forte);
+}
+.icvm-card h3 { font-family: 'Syne', sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 4px; }
+.icvm-numero { font-family: 'Syne', sans-serif; font-size: 52px; font-weight: 800; line-height: 1; color: var(--verde-menta); }
+.icvm-numero span { font-size: 22px; opacity: 0.7; }
+.icvm-meta { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+.icvm-barra-container { margin-top: 12px; background: rgba(255,255,255,0.15); border-radius: 6px; height: 8px; overflow: hidden; }
+.icvm-barra { height: 100%; background: var(--verde-menta); border-radius: 6px; transition: width 1s ease; }
+
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 16px 16px; }
+.stat-card {
+  background: white;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: var(--sombra);
+  border-top: 3px solid var(--verde-claro);
+}
+.stat-card h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--cinza-medio); margin-bottom: 6px; font-weight: 700; }
+.stat-card .numero { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--verde-escuro); line-height: 1; }
+.stat-card .variacao { font-size: 11px; color: var(--verde-claro); margin-top: 3px; font-weight: 600; }
+
+.bairros-tabela { margin: 0 16px 16px; }
+.bairros-tabela h3 { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--verde-escuro); }
+.bairro-linha {
+  background: white;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+.bairro-nome { font-size: 13px; font-weight: 600; flex: 1; }
+.bairro-icvm { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800; color: var(--verde-medio); min-width: 44px; text-align: right; }
+.bairro-barra-bg { flex: 2; background: var(--cinza-claro); border-radius: 4px; height: 6px; overflow: hidden; }
+.bairro-barra { height: 100%; border-radius: 4px; }
+.bairro-status { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 8px; }
+
+.chart-container { margin: 0 16px 16px; background: white; border-radius: 14px; padding: 16px; box-shadow: var(--sombra); }
+.chart-container h3 { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--verde-escuro); }
+.chart-bars { display: flex; align-items: flex-end; gap: 8px; height: 80px; }
+.chart-bar-group { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+.chart-bar { width: 100%; border-radius: 4px 4px 0 0; transition: all 0.3s; }
+.chart-bar-label { font-size: 9px; color: var(--cinza-medio); text-align: center; font-weight: 600; }
+.chart-bar-val { font-size: 9px; font-weight: 700; color: var(--verde-escuro); }
+
+/* ══════════════════════
+   TELA 6: ALERTAS
+   ══════════════════════ */
+.alertas-header {
+  background: linear-gradient(135deg, #7f1d1d, var(--laranja));
+  padding: 20px;
+  color: white;
+}
+.alertas-header h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.alertas-header p { font-size: 13px; opacity: 0.75; }
+
+.alerta-card {
+  margin: 12px 16px 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--sombra);
+}
+.alerta-card:first-of-type { margin-top: 16px; }
+.alerta-card-barra { height: 5px; }
+.alerta-card-body { background: white; padding: 14px; }
+.alerta-card-body .alerta-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.alerta-card-body h3 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }
+.alerta-nivel { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 8px; flex-shrink: 0; margin-left: 8px; }
+.nivel-critico { background: #FFEBEE; color: #C62828; }
+.nivel-atencao { background: #FFF8E1; color: #F57F17; }
+.nivel-info { background: #E3F2FD; color: #1565C0; }
+.alerta-card-body p { font-size: 12px; color: var(--cinza-medio); line-height: 1.5; margin-bottom: 10px; }
+.alerta-bairros { display: flex; gap: 6px; flex-wrap: wrap; }
+.alerta-bairro-tag { background: var(--cinza-claro); border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 600; color: var(--verde-escuro); }
+.alerta-hora { font-size: 10px; color: var(--cinza-medio); margin-top: 8px; }
+
+/* ══════════════════════
+   MODAL CONFIRMAÇÃO
+   ══════════════════════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.visivel { display: flex; }
+.modal-box {
+  background: white;
+  border-radius: 20px;
+  padding: 28px 24px;
+  max-width: 320px;
+  width: 100%;
+  text-align: center;
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-icon { font-size: 48px; margin-bottom: 12px; }
+.modal-box h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 8px; color: var(--verde-escuro); }
+.modal-box p { font-size: 13px; color: var(--cinza-medio); line-height: 1.5; margin-bottom: 20px; }
+.modal-id { background: var(--verde-suave); border-radius: 8px; padding: 8px 16px; font-family: 'Syne', sans-serif; font-weight: 800; color: var(--verde-escuro); font-size: 16px; margin-bottom: 20px; }
+.btn-modal { background: var(--verde-medio); color: white; border: none; border-radius: 12px; padding: 12px 24px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%; transition: all 0.2s; }
+.btn-modal:hover { background: var(--verde-escuro); }
+
+/* ══════════════════════
+   TELA BOAS-VINDAS
+   ══════════════════════ */
+#tela-boas-vindas {
+  background: linear-gradient(160deg, var(--verde-escuro) 0%, var(--verde-medio) 50%, #52B788 100%);
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.bv-bg-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+}
+.bv-bg-circle:nth-child(1) { width: 300px; height: 300px; top: -80px; right: -80px; }
+.bv-bg-circle:nth-child(2) { width: 200px; height: 200px; bottom: 60px; left: -60px; }
+.bv-logo { font-family: 'Syne', sans-serif; font-size: 44px; font-weight: 800; color: white; letter-spacing: -1px; margin-bottom: 4px; position: relative; z-index: 1; }
+.bv-logo span { color: var(--verde-menta); }
+.bv-tagline { font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 40px; position: relative; z-index: 1; }
+.bv-title { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: white; margin-bottom: 10px; line-height: 1.2; position: relative; z-index: 1; }
+.bv-desc { font-size: 13px; color: rgba(255,255,255,0.75); line-height: 1.6; margin-bottom: 36px; position: relative; z-index: 1; }
+
+.perfil-opcoes { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; position: relative; z-index: 1; }
+.perfil-btn {
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.25);
+  border-radius: 14px;
+  padding: 14px 18px;
+  color: white;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  backdrop-filter: blur(8px);
+}
+.perfil-btn:hover { background: rgba(255,255,255,0.22); transform: translateX(4px); border-color: var(--verde-menta); }
+.perfil-btn .perfil-icon { font-size: 24px; }
+.perfil-btn .perfil-info { flex: 1; }
+.perfil-btn .perfil-nome { font-weight: 700; margin-bottom: 2px; }
+.perfil-btn .perfil-desc { font-size: 11px; opacity: 0.7; }
+.perfil-btn .seta { opacity: 0.5; font-size: 16px; }
+
+/* Animações de entrada */
+.fade-in { animation: fadeIn 0.4s ease forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Scrollbar custom */
+.conteudo::-webkit-scrollbar { width: 4px; }
+.conteudo::-webkit-scrollbar-track { background: transparent; }
+.conteudo::-webkit-scrollbar-thumb { background: var(--verde-menta); border-radius: 4px; }
+
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--cinza-medio);
+  padding: 16px 16px 8px;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════
+     TELA BOAS-VINDAS (login/perfil)
+     ═══════════════════════════════ -->
+<div class="tela ativa" id="tela-boas-vindas">
+  <div class="bv-bg-circle"></div>
+  <div class="bv-bg-circle"></div>
+  <div class="bv-logo">Esponja<span>Rio</span> 🌿</div>
+  <p class="bv-tagline">Zona Norte mais verde, mais resiliente</p>
+  <h1 class="bv-title">Sua cidade esponja começa aqui</h1>
+  <p class="bv-desc">Mapeie áreas verdes, reporte alagamentos e acompanhe a transformação da Zona Norte do Rio de Janeiro em uma cidade mais sustentável.</p>
+  <p class="bv-desc" style="font-size:11px;margin-top:-24px;opacity:0.8">Protótipo acadêmico — dados e ocorrências fictícios.</p>
+  <div class="perfil-opcoes">
+    <button class="perfil-btn" onclick="entrarComo('cidadao')">
+      <span class="perfil-icon">🧑‍🤝‍🧑</span>
+      <div class="perfil-info">
+        <div class="perfil-nome">Entrar como Cidadão</div>
+        <div class="perfil-desc">Reporte e acompanhe ocorrências</div>
+      </div>
+      <span class="seta">›</span>
+    </button>
+    <button class="perfil-btn" onclick="entrarComo('tecnico')">
+      <span class="perfil-icon">🌿</span>
+      <div class="perfil-info">
+        <div class="perfil-nome">Entrar como Técnico / ONG</div>
+        <div class="perfil-desc">Valide reportes e cadastre intervenções</div>
+      </div>
+      <span class="seta">›</span>
+    </button>
+    <button class="perfil-btn" onclick="entrarComo('gestor')">
+      <span class="perfil-icon">🏛️</span>
+      <div class="perfil-info">
+        <div class="perfil-nome">Entrar como Gestor Público</div>
+        <div class="perfil-desc">Painel de indicadores e métricas</div>
+      </div>
+      <span class="seta">›</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     TELA MAPA PRINCIPAL
+     ═══════════════════════════════ -->
+<div class="tela" id="tela-mapa">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="voltarInicio()">
+      <span class="leaf">🌿</span>Esponja<span>Rio</span>
+    </div>
+    <div class="topbar-right">
+      <div class="perfil-badge" id="badge-perfil" onclick="voltarInicio()">👤 Cidadão</div>
+      <div class="topbar-icon" onclick="irParaAlertas()">🔔</div>
+    </div>
+  </div>
+  <div class="conteudo" style="position:relative;">
+    <div id="mapa-leaflet"></div>
+    <div class="filtros-barra">
+      <button class="filtro-btn ativo" onclick="filtrarMapa('todos',this)">🗺️ Todos</button>
+      <button class="filtro-btn" onclick="filtrarMapa('alagamento',this)">💧 Alagamentos</button>
+      <button class="filtro-btn" onclick="filtrarMapa('verde',this)">🌳 Áreas Verdes</button>
+      <button class="filtro-btn" onclick="filtrarMapa('potencial',this)">✨ Potenciais</button>
+    </div>
+    <div class="painel-stats">
+      <h4>Zona Norte — Hoje</h4>
+      <div class="stat-linha"><span>Reportes ativos</span><strong>47</strong></div>
+      <div class="stat-linha"><span>Áreas mapeadas</span><strong>23</strong></div>
+      <div class="stat-linha"><span>ICVM médio</span><strong>8,4%</strong></div>
+    </div>
+    <div class="mapa-legenda">
+      <h4>Legenda</h4>
+      <div class="legenda-item"><div class="legenda-dot" style="background:#1565C0"></div>Alagamento crítico</div>
+      <div class="legenda-item"><div class="legenda-dot" style="background:#F59E0B"></div>Alagamento moderado</div>
+      <div class="legenda-item"><div class="legenda-dot" style="background:#22C55E"></div>Área verde ativa</div>
+      <div class="legenda-item"><div class="legenda-dot" style="background:#A3E635"></div>Área potencial</div>
+    </div>
+    <button class="fab-reportar" onclick="irParaReporte()">📸</button>
+  </div>
+  <div class="bottomnav">
+    <button class="nav-item ativo" onclick="irParaMapa()"><span class="icon">🗺️</span>Mapa</button>
+    <button class="nav-item" onclick="irParaReporte()"><span class="icon">📸</span>Reportar</button>
+    <button class="nav-item" onclick="irParaHistorico()"><span class="icon">📋</span>Meus Reportes</button>
+    <button class="nav-item" id="nav-tecnico" onclick="irParaTecnico()" style="display:none"><span class="icon">✅</span>Validar</button>
+    <button class="nav-item" id="nav-gestor" onclick="irParaGestor()" style="display:none"><span class="icon">📊</span>Painel</button>
+    <button class="nav-item" onclick="irParaAlertas()"><span class="icon">🔔</span>Alertas</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     TELA REPORTE CIDADÃO
+     ═══════════════════════════════ -->
+<div class="tela" id="tela-reporte">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="voltarInicio()"><span class="leaf">🌿</span>Esponja<span>Rio</span></div>
+    <div class="topbar-right">
+      <div class="topbar-icon" onclick="irParaMapa()">← Mapa</div>
+    </div>
+  </div>
+  <div class="conteudo">
+    <div class="reporte-header">
+      <h2>📸 Novo Reporte</h2>
+      <p>Registre um alagamento ou área verde na sua região</p>
+    </div>
+    <div class="reporte-body">
+      <div class="campo-grupo">
+        <label>Tipo de Ocorrência</label>
+        <div class="tipo-cards">
+          <div class="tipo-card selecionado" onclick="selecionarTipo(this,'Ponto de Alagamento')">
+            <div class="tipo-icon">💧</div>
+            <div class="tipo-label">Alagamento</div>
+          </div>
+          <div class="tipo-card" onclick="selecionarTipo(this,'Área Verde Degradada')">
+            <div class="tipo-icon">🍂</div>
+            <div class="tipo-label">Área Verde Degradada</div>
+          </div>
+          <div class="tipo-card" onclick="selecionarTipo(this,'Área Potencial para Intervenção')">
+            <div class="tipo-icon">✨</div>
+            <div class="tipo-label">Área Potencial</div>
+          </div>
+          <div class="tipo-card" onclick="selecionarTipo(this,'Bueiro Entupido')">
+            <div class="tipo-icon">🚧</div>
+            <div class="tipo-label">Bueiro Entupido</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="campo-grupo">
+        <label>Bairro</label>
+        <select class="campo-select" id="select-bairro">
+          <option value="">Selecione o bairro...</option>
+          <option>Méier</option>
+          <option>Madureira</option>
+          <option>Ramos</option>
+          <option>Penha</option>
+          <option>Inhaúma</option>
+          <option>Irajá</option>
+          <option>Anchieta</option>
+          <option>Rocha Miranda</option>
+          <option>Engenho de Dentro</option>
+          <option>Todos os Santos</option>
+        </select>
+      </div>
+
+      <div class="campo-grupo">
+        <label>Endereço / Referência</label>
+        <input class="campo-input" type="text" placeholder="Ex: Rua Dias da Cruz, próximo ao mercado..." id="input-endereco"/>
+      </div>
+
+      <div class="campo-grupo">
+        <label>Foto do Local</label>
+        <div class="foto-area" id="foto-area" onclick="simularFoto()">
+          <div class="foto-icon" id="foto-icon">📷</div>
+          <p id="foto-texto">Toque para tirar foto ou escolher da galeria</p>
+        </div>
+      </div>
+
+      <div class="campo-grupo">
+        <label>Localização</label>
+        <div class="localizacao-box">
+          <span style="font-size:18px">📍</span>
+          <span><strong>GPS ativo:</strong> Lat -22.8935 / Lon -43.2712<br><span style="font-size:10px;opacity:0.7">Precisão: ±5 metros</span></span>
+        </div>
+      </div>
+
+      <div class="campo-grupo">
+        <label>Descrição (opcional)</label>
+        <textarea class="campo-textarea" placeholder="Descreva o que está vendo. Ex: Rua alagada após 30 min de chuva, água chegou à calçada..." id="textarea-desc"></textarea>
+      </div>
+
+      <div class="campo-grupo">
+        <label>Nível de Urgência</label>
+        <select class="campo-select" id="select-urgencia">
+          <option value="">Selecione a urgência...</option>
+          <option value="critico">🔴 Crítico — risco imediato</option>
+          <option value="alto">🟠 Alto — situação grave</option>
+          <option value="medio">🟡 Moderado — atenção necessária</option>
+          <option value="baixo">🟢 Baixo — para registro</option>
+        </select>
+      </div>
+
+      <button class="btn-enviar" onclick="enviarReporte()">
+        📤 Enviar Reporte
+      </button>
+    </div>
+  </div>
+  <div class="bottomnav">
+    <button class="nav-item" onclick="irParaMapa()"><span class="icon">🗺️</span>Mapa</button>
+    <button class="nav-item ativo" onclick="irParaReporte()"><span class="icon">📸</span>Reportar</button>
+    <button class="nav-item" onclick="irParaHistorico()"><span class="icon">📋</span>Meus Reportes</button>
+    <button class="nav-item" id="nav-tecnico2" onclick="irParaTecnico()" style="display:none"><span class="icon">✅</span>Validar</button>
+    <button class="nav-item" id="nav-gestor2" onclick="irParaGestor()" style="display:none"><span class="icon">📊</span>Painel</button>
+    <button class="nav-item" onclick="irParaAlertas()"><span class="icon">🔔</span>Alertas</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     TELA HISTÓRICO / MEUS REPORTES
+     ═══════════════════════════════ -->
+<div class="tela" id="tela-historico">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="voltarInicio()"><span class="leaf">🌿</span>Esponja<span>Rio</span></div>
+    <div class="topbar-right">
+      <div class="topbar-icon" onclick="irParaReporte()">＋</div>
+    </div>
+  </div>
+  <div class="conteudo">
+    <div class="historico-header">
+      <h2>📋 Meus Reportes</h2>
+      <p>Acompanhe o status das suas ocorrências</p>
+    </div>
+    <div class="section-title">Reportes Recentes</div>
+
+    <div class="reporte-card fade-in" onclick="irParaMapa()">
+      <div class="reporte-card-header">
+        <div>
+          <h3>Alagamento — Rua Dias da Cruz</h3>
+          <div class="endereco">📍 Méier • Enviado há 2 horas</div>
+        </div>
+        <span class="status-badge status-validado">✅ Validado</span>
+      </div>
+      <div class="reporte-card-footer">
+        <span class="tipo-tag">💧 Ponto de Alagamento</span>
+        <span>🔴 Crítico</span>
+      </div>
+    </div>
+
+    <div class="reporte-card fade-in" onclick="irParaMapa()">
+      <div class="reporte-card-header">
+        <div>
+          <h3>Área Verde Degradada — Canteiro da Estrada do Portela</h3>
+          <div class="endereco">📍 Madureira • Enviado ontem</div>
+        </div>
+        <span class="status-badge status-pendente">⏳ Em análise</span>
+      </div>
+      <div class="reporte-card-footer">
+        <span class="tipo-tag">🍂 Área Verde Degradada</span>
+        <span>🟡 Moderado</span>
+      </div>
+    </div>
+
+    <div class="reporte-card fade-in" onclick="irParaMapa()">
+      <div class="reporte-card-header">
+        <div>
+          <h3>Bueiro Entupido — Av. Suburbana</h3>
+          <div class="endereco">📍 Ramos • Enviado há 3 dias</div>
+        </div>
+        <span class="status-badge status-validado">✅ Validado</span>
+      </div>
+      <div class="reporte-card-footer">
+        <span class="tipo-tag">🚧 Bueiro Entupido</span>
+        <span>🟠 Alto</span>
+      </div>
+    </div>
+
+    <div class="reporte-card fade-in" onclick="irParaMapa()">
+      <div class="reporte-card-header">
+        <div>
+          <h3>Área Potencial para Jardim de Chuva</h3>
+          <div class="endereco">📍 Penha • Enviado há 5 dias</div>
+        </div>
+        <span class="status-badge status-pendente">⏳ Em análise</span>
+      </div>
+      <div class="reporte-card-footer">
+        <span class="tipo-tag">✨ Área Potencial</span>
+        <span>🟢 Baixo</span>
+      </div>
+    </div>
+
+    <div class="reporte-card fade-in" onclick="irParaMapa()">
+      <div class="reporte-card-header">
+        <div>
+          <h3>Alagamento — Rua Brás de Pina</h3>
+          <div class="endereco">📍 Penha • Enviado há 1 semana</div>
+        </div>
+        <span class="status-badge status-rejeitado">❌ Rejeitado</span>
+      </div>
+      <div class="reporte-card-footer">
+        <span class="tipo-tag">💧 Ponto de Alagamento</span>
+        <span>🟠 Alto</span>
+      </div>
+    </div>
+
+    <div style="margin:8px 16px 20px; padding:12px 14px; background:#FFF3E0; border-radius:10px; font-size:12px; color:#E65100; display:flex; gap:8px; align-items:center;">
+      <span style="font-size:16px">ℹ️</span>
+      <span><strong>Reporte rejeitado:</strong> O reporte de Brás de Pina foi rejeitado pois a ocorrência já havia sido registrada anteriormente. Obrigado pela colaboração!</span>
+    </div>
+  </div>
+  <div class="bottomnav">
+    <button class="nav-item" onclick="irParaMapa()"><span class="icon">🗺️</span>Mapa</button>
+    <button class="nav-item" onclick="irParaReporte()"><span class="icon">📸</span>Reportar</button>
+    <button class="nav-item ativo" onclick="irParaHistorico()"><span class="icon">📋</span>Meus Reportes</button>
+    <button class="nav-item" id="nav-tecnico3" onclick="irParaTecnico()" style="display:none"><span class="icon">✅</span>Validar</button>
+    <button class="nav-item" id="nav-gestor3" onclick="irParaGestor()" style="display:none"><span class="icon">📊</span>Painel</button>
+    <button class="nav-item" onclick="irParaAlertas()"><span class="icon">🔔</span>Alertas</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     TELA VALIDAÇÃO TÉCNICA
+     ═══════════════════════════════ -->
+<div class="tela" id="tela-tecnico">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="voltarInicio()"><span class="leaf">🌿</span>Esponja<span>Rio</span></div>
+    <div class="topbar-right">
+      <div class="perfil-badge">🌿 Técnico</div>
+    </div>
+  </div>
+  <div class="conteudo">
+    <div class="tecnico-header">
+      <div class="subtitulo">Módulo Técnico / ONG</div>
+      <h2>✅ Fila de Validação</h2>
+      <div class="fila-badge">
+        <div><span class="num">12</span>Pendentes</div>
+        <div><span class="num">47</span>Validados hoje</div>
+        <div><span class="num">3</span>Rejeitados</div>
+      </div>
+    </div>
+    <div class="section-title">Aguardando Validação</div>
+
+    <!-- CARD 1 -->
+    <div class="validacao-card">
+      <div class="validacao-card-header">
+        <h3>💧 Alagamento — Rua Silva Rabelo</h3>
+        <div class="meta">Enviado por cidadão_RJ_4821 • há 45 min • Méier</div>
+      </div>
+      <div class="foto-preview">🌧️ <div class="foto-label">📸 Foto enviada pelo cidadão</div></div>
+      <div class="validacao-card-body">
+        <div class="info-linha"><span class="icon">📍</span><span><span class="label">Local:</span>Rua Silva Rabelo, 230 — Méier, próximo à estação de trem</span></div>
+        <div class="info-linha"><span class="icon">🔴</span><span><span class="label">Urgência:</span>Crítico — risco imediato</span></div>
+        <div class="info-linha"><span class="icon">💬</span><span><span class="label">Descrição:</span>"Rua completamente alagada, água na altura do joelho, carros parados."</span></div>
+        <div class="info-linha"><span class="icon">📐</span><span><span class="label">Coordenadas:</span>-22.9068, -43.2853</span></div>
+      </div>
+      <div class="acoes-validacao">
+        <button class="btn-validar btn-aprovar" onclick="validarReporte(this,'aprovado')">✅ Aprovar e Georreferenciar</button>
+        <button class="btn-validar btn-rejeitar" onclick="validarReporte(this,'rejeitado')">❌ Rejeitar</button>
+      </div>
+    </div>
+
+    <!-- CARD 2 -->
+    <div class="validacao-card" style="border-left-color: #22c55e; margin-bottom:16px;">
+      <div class="validacao-card-header">
+        <h3>✨ Área Potencial — Terreno baldio Av. Lobo Júnior</h3>
+        <div class="meta">Enviado por cidadão_RJ_2203 • há 2h • Penha</div>
+      </div>
+      <div class="foto-preview" style="background: linear-gradient(135deg,#f0fdf4,#bbf7d0)">🌱<div class="foto-label">📸 Foto enviada pelo cidadão</div></div>
+      <div class="validacao-card-body">
+        <div class="info-linha"><span class="icon">📍</span><span><span class="label">Local:</span>Av. Lobo Júnior, 1450 — Penha, terreno sem uso há +3 anos</span></div>
+        <div class="info-linha"><span class="icon">🟢</span><span><span class="label">Urgência:</span>Baixo — para cadastro técnico</span></div>
+        <div class="info-linha"><span class="icon">💬</span><span><span class="label">Descrição:</span>"Terreno grande, sem uso, poderia virar jardim de chuva ou praça verde."</span></div>
+        <div class="info-linha"><span class="icon">📐</span><span><span class="label">Área estimada:</span>~1.200 m² — solo possivelmente permeável</span></div>
+      </div>
+      <div class="acoes-validacao">
+        <button class="btn-validar btn-aprovar" onclick="validarReporte(this,'aprovado')">✅ Aprovar e Cadastrar</button>
+        <button class="btn-validar btn-rejeitar" onclick="validarReporte(this,'rejeitado')">❌ Rejeitar</button>
+      </div>
+    </div>
+  </div>
+  <div class="bottomnav">
+    <button class="nav-item" onclick="irParaMapa()"><span class="icon">🗺️</span>Mapa</button>
+    <button class="nav-item" onclick="irParaReporte()"><span class="icon">📸</span>Reportar</button>
+    <button class="nav-item" onclick="irParaHistorico()"><span class="icon">📋</span>Reportes</button>
+    <button class="nav-item ativo"><span class="icon">✅</span>Validar</button>
+    <button class="nav-item" onclick="irParaAlertas()"><span class="icon">🔔</span>Alertas</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     TELA PAINEL GESTOR
+     ═══════════════════════════════ -->
+<div class="tela" id="tela-gestor">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="voltarInicio()"><span class="leaf">🌿</span>Esponja<span>Rio</span></div>
+    <div class="topbar-right">
+      <div class="perfil-badge">🏛️ Gestor</div>
+      <div class="topbar-icon">⬇️</div>
+    </div>
+  </div>
+  <div class="conteudo">
+    <div class="gestor-header">
+      <div class="subtitulo">Painel de Gestão Pública</div>
+      <h2>📊 Indicadores — Zona Norte</h2>
+    </div>
+
+    <div class="icvm-card">
+      <h3>Índice de Cobertura Verde Monitorada (ICVM)</h3>
+      <div class="icvm-numero">8,4<span>%</span></div>
+      <div class="icvm-meta">Meta: ≥ 12% em 3 bairros até Dez/2026 &nbsp;|&nbsp; Referência OMS: 12 m²/hab</div>
+      <div class="icvm-barra-container">
+        <div class="icvm-barra" id="icvm-barra" style="width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;opacity:0.6;margin-top:4px">
+        <span>0%</span><span>Meta: 12%</span>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h4>Total de Reportes</h4>
+        <div class="numero">347</div>
+        <div class="variacao">↑ +28 esta semana</div>
+      </div>
+      <div class="stat-card" style="border-top-color: var(--azul-alerta)">
+        <h4>Validados</h4>
+        <div class="numero" style="color:var(--azul-alerta)">281</div>
+        <div class="variacao" style="color:var(--azul-alerta)">↑ TVR: 81%</div>
+      </div>
+      <div class="stat-card" style="border-top-color: var(--laranja)">
+        <h4>Pontos Críticos</h4>
+        <div class="numero" style="color:var(--laranja)">23</div>
+        <div class="variacao" style="color:var(--laranja)">↓ -4 vs mês ant.</div>
+      </div>
+      <div class="stat-card" style="border-top-color: #22c55e">
+        <h4>Áreas Verdes Mapeadas</h4>
+        <div class="numero" style="color:#22c55e">41</div>
+        <div class="variacao" style="color:#22c55e">↑ +7 este mês</div>
+      </div>
+    </div>
+
+    <div class="bairros-tabela">
+      <h3>ICVM por Bairro</h3>
+      <div id="tabela-bairros"></div>
+    </div>
+
+    <div class="chart-container">
+      <h3>Reportes por Tipo — Últimos 6 meses</h3>
+      <div class="chart-bars" id="chart-bars"></div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--cinza-medio)"><div style="width:10px;height:10px;background:#1565C0;border-radius:2px"></div>Alagamentos</div>
+        <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--cinza-medio)"><div style="width:10px;height:10px;background:#22c55e;border-radius:2px"></div>Áreas Verdes</div>
+        <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--cinza-medio)"><div style="width:10px;height:10px;background:#A3E635;border-radius:2px"></div>Potenciais</div>
+      </div>
+    </div>
+
+    <div style="margin:0 16px 20px; padding:14px; background:white; border-radius:14px; box-shadow:var(--sombra);">
+      <h3 style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--verde-escuro);margin-bottom:10px;">Métricas Complementares</h3>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px;background:var(--cinza-claro);border-radius:8px">
+          <span style="color:var(--cinza-medio)">Taxa de Validação (TVR)</span>
+          <strong style="color:var(--verde-medio);font-family:'Syne',sans-serif">81% <span style="font-size:10px;color:#22c55e">▲ Meta: 70%</span></strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px;background:var(--cinza-claro);border-radius:8px">
+          <span style="color:var(--cinza-medio)">Tempo Médio de Validação (TMV)</span>
+          <strong style="color:var(--azul-alerta);font-family:'Syne',sans-serif">58h <span style="font-size:10px;color:#22c55e">▲ Meta: ≤72h</span></strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px;background:var(--cinza-claro);border-radius:8px">
+          <span style="color:var(--cinza-medio)">Reportes por Bairro (VRB médio)</span>
+          <strong style="color:var(--laranja);font-family:'Syne',sans-serif">69/bairro <span style="font-size:10px;color:#22c55e">▲ Meta: ≥50</span></strong>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bottomnav">
+    <button class="nav-item" onclick="irParaMapa()"><span class="icon">🗺️</span>Mapa</button>
+    <button class="nav-item" onclick="irParaReporte()"><span class="icon">📸</span>Reportar</button>
+    <button class="nav-item" onclick="irParaHistorico()"><span class="icon">📋</span>Reportes</button>
+    <button class="nav-item ativo"><span class="icon">📊</span>Painel</button>
+    <button class="nav-item" onclick="irParaAlertas()"><span class="icon">🔔</span>Alertas</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     TELA ALERTAS
+     ═══════════════════════════════ -->
+<div class="tela" id="tela-alertas">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="voltarInicio()"><span class="leaf">🌿</span>Esponja<span>Rio</span></div>
+    <div class="topbar-right">
+      <div class="topbar-icon" onclick="irParaMapa()">🗺️</div>
+    </div>
+  </div>
+  <div class="conteudo">
+    <div class="alertas-header">
+      <h2>🔔 Central de Alertas</h2>
+      <p>Ocorrências e comunicados — Zona Norte</p>
+    </div>
+    <div class="section-title">Alertas Ativos</div>
+
+    <div class="alerta-card">
+      <div class="alerta-card-barra" style="background:#C62828"></div>
+      <div class="alerta-card-body">
+        <div class="alerta-top">
+          <h3>⛈️ Risco de Alagamento — Chuva Intensa</h3>
+          <span class="alerta-nivel nivel-critico">CRÍTICO</span>
+        </div>
+        <p>Previsão de chuvas acima de 80mm nas próximas 6 horas. Pontos históricos de alagamento em estado de alerta máximo. Evite trânsito nas áreas de risco.</p>
+        <div class="alerta-bairros">
+          <span class="alerta-bairro-tag">Madureira</span>
+          <span class="alerta-bairro-tag">Ramos</span>
+          <span class="alerta-bairro-tag">Inhaúma</span>
+          <span class="alerta-bairro-tag">Penha</span>
+        </div>
+        <div class="alerta-hora">🕐 Emitido às 14h32 — Fonte: Alerta Rio / EsponjaRio</div>
+      </div>
+    </div>
+
+    <div class="alerta-card">
+      <div class="alerta-card-barra" style="background:#F57F17"></div>
+      <div class="alerta-card-body">
+        <div class="alerta-top">
+          <h3>🌿 Intervenção Verde Confirmada — Méier</h3>
+          <span class="alerta-nivel nivel-atencao">ATENÇÃO</span>
+        </div>
+        <p>A Prefeitura confirmou implantação de jardim de chuva na Rua Dias da Cruz após 34 reportes validados na plataforma. Obras iniciam em 15 dias.</p>
+        <div class="alerta-bairros">
+          <span class="alerta-bairro-tag">Méier</span>
+        </div>
+        <div class="alerta-hora">🕐 Publicado às 10h15 — Secretaria de Meio Ambiente</div>
+      </div>
+    </div>
+
+    <div class="alerta-card">
+      <div class="alerta-card-barra" style="background:#1565C0"></div>
+      <div class="alerta-card-body">
+        <div class="alerta-top">
+          <h3>📊 ICVM Atualizado — Resultados de Março</h3>
+          <span class="alerta-nivel nivel-info">INFO</span>
+        </div>
+        <p>O Índice de Cobertura Verde Monitorada da Zona Norte subiu de 7,1% para 8,4% em março, graças a 7 novas áreas verdes cadastradas e validadas na plataforma.</p>
+        <div class="alerta-bairros">
+          <span class="alerta-bairro-tag">Todos os bairros</span>
+        </div>
+        <div class="alerta-hora">🕐 Publicado em 01/04/2026 — EsponjaRio</div>
+      </div>
+    </div>
+
+    <div class="alerta-card" style="margin-bottom:20px">
+      <div class="alerta-card-barra" style="background:#22c55e"></div>
+      <div class="alerta-card-body">
+        <div class="alerta-top">
+          <h3>✅ Novo Parceiro — ONG Raízes da Penha</h3>
+          <span class="alerta-nivel" style="background:#e8f5e9;color:#2e7d32">PARCERIA</span>
+        </div>
+        <p>A ONG Raízes da Penha se juntou ao EsponjaRio como técnico validador. Com isso, a capacidade de validação na Zona Norte aumentou em 30%.</p>
+        <div class="alerta-bairros">
+          <span class="alerta-bairro-tag">Penha</span>
+          <span class="alerta-bairro-tag">Ramos</span>
+        </div>
+        <div class="alerta-hora">🕐 Publicado em 28/03/2026 — EsponjaRio</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottomnav">
+    <button class="nav-item" onclick="irParaMapa()"><span class="icon">🗺️</span>Mapa</button>
+    <button class="nav-item" onclick="irParaReporte()"><span class="icon">📸</span>Reportar</button>
+    <button class="nav-item" onclick="irParaHistorico()"><span class="icon">📋</span>Meus Reportes</button>
+    <button class="nav-item" id="nav-tecnico5" onclick="irParaTecnico()" style="display:none"><span class="icon">✅</span>Validar</button>
+    <button class="nav-item" id="nav-gestor5" onclick="irParaGestor()" style="display:none"><span class="icon">📊</span>Painel</button>
+    <button class="nav-item ativo"><span class="icon">🔔</span>Alertas</button>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAÇÃO -->
+<div class="modal-overlay" id="modal-confirmacao">
+  <div class="modal-box">
+    <div class="modal-icon">✅</div>
+    <h2>Reporte Enviado!</h2>
+    <p>Seu reporte foi registrado com sucesso e já está visível no mapa. Um técnico irá validá-lo em breve.</p>
+    <div class="modal-id" id="modal-id">ID: #ER-2026-1247</div>
+    <p style="font-size:11px;color:var(--cinza-medio);margin-bottom:20px">Você pode acompanhar o status em "Meus Reportes"</p>
+    <button class="btn-modal" onclick="fecharModal()">Ver no Mapa 🗺️</button>
+  </div>
+</div>
+
+<!-- MODAL VALIDAÇÃO -->
+<div class="modal-overlay" id="modal-validacao">
+  <div class="modal-box">
+    <div class="modal-icon" id="modal-val-icon">✅</div>
+    <h2 id="modal-val-titulo">Reporte Aprovado!</h2>
+    <p id="modal-val-desc">O reporte foi validado e georreferenciado no mapa. O cidadão será notificado.</p>
+    <button class="btn-modal" onclick="fecharModalValidacao()">Próximo Reporte →</button>
+  </div>
+</div>
+
+<script>
+// ═══ ESTADO GLOBAL ═══
+let perfilAtual = 'cidadao';
+let tipoSelecionado = 'Ponto de Alagamento';
+let fotoSimulada = false;
+let mapaIniciado = false;
+let mapaObj = null;
+let marcadores = [];
+
+// ═══ DADOS SIMULADOS ═══
+const pontosAlagamento = [
+  { lat: -22.9028, lng: -43.2720, tipo: 'alagamento', nivel: 'critico', titulo: 'Rua Dias da Cruz', bairro: 'Méier', desc: '34 reportes validados. Obra de jardim de chuva confirmada.' },
+  { lat: -22.8745, lng: -43.3385, tipo: 'alagamento', nivel: 'critico', titulo: 'Rua Carolina Machado', bairro: 'Madureira', desc: 'Alagamento recorrente. 28 reportes no último mês.' },
+  { lat: -22.8790, lng: -43.2260, tipo: 'alagamento', nivel: 'atencao', titulo: 'Av. Suburbana', bairro: 'Ramos', desc: 'Alagamento moderado. 15 reportes validados.' },
+  { lat: -22.8510, lng: -43.3050, tipo: 'alagamento', nivel: 'atencao', titulo: 'Rua Brás de Pina', bairro: 'Penha', desc: 'Ponto moderado. 12 reportes.' },
+  { lat: -22.8920, lng: -43.2860, tipo: 'alagamento', nivel: 'critico', titulo: 'Rua Silva Rabelo', bairro: 'Méier', desc: 'Novo reporte. Aguardando validação técnica.' },
+  { lat: -22.8650, lng: -43.2730, tipo: 'alagamento', nivel: 'atencao', titulo: 'Rua das Oficinas', bairro: 'Inhaúma', desc: 'Ponto de atenção. 9 reportes.' },
+];
+const pontosVerde = [
+  { lat: -22.8690, lng: -43.3400, tipo: 'verde', titulo: 'Parque de Madureira', bairro: 'Madureira', icvm: '14,2%', desc: 'Área verde ativa e monitorada. ICVM acima da meta de 12%.' },
+  { lat: -22.9100, lng: -43.2600, tipo: 'verde', titulo: 'Praça do Méier', bairro: 'Méier', area: '4.200 m²', icvm: '9,1%', desc: 'Área verde cadastrada. Manutenção regular.' },
+  { lat: -22.8680, lng: -43.2400, tipo: 'verde', titulo: 'Horta Comunitária Ramos', bairro: 'Ramos', area: '800 m²', icvm: '6,8%', desc: 'Intervenção verde validada por ONG local.' },
+];
+const pontosPotencial = [
+  { lat: -22.8500, lng: -43.2900, tipo: 'potencial', titulo: 'Terreno Av. Lobo Júnior', bairro: 'Penha', area: '1.200 m²', desc: 'Reportado por cidadão. Aguarda validação técnica para jardim de chuva.' },
+  { lat: -22.9180, lng: -43.3100, tipo: 'potencial', titulo: 'Lote Abandonado — Guadalupe', bairro: 'Guadalupe', area: '2.400 m²', desc: 'Área potencial para wetland urbana.' },
+  { lat: -22.8750, lng: -43.3200, tipo: 'potencial', titulo: 'Canteiro Av. Brasil', bairro: 'Irajá', area: '600 m²', desc: 'Canteiro central com potencial para arborização densa.' },
+];
+
+const bairrosData = [
+  { nome: 'Madureira', icvm: 14.2, cor: '#22c55e', status: 'Meta atingida', statusCor: '#e8f5e9', statusText: '#2e7d32' },
+  { nome: 'Méier', icvm: 9.1, cor: '#84cc16', status: 'Em progresso', statusCor: '#f0fdf4', statusText: '#166534' },
+  { nome: 'Inhaúma', icvm: 7.8, cor: '#eab308', status: 'Atenção', statusCor: '#fefce8', statusText: '#854d0e' },
+  { nome: 'Ramos', icvm: 6.8, cor: '#f97316', status: 'Crítico', statusCor: '#fff7ed', statusText: '#9a3412' },
+  { nome: 'Penha', icvm: 5.9, cor: '#ef4444', status: 'Crítico', statusCor: '#fef2f2', statusText: '#991b1b' },
+];
+
+const chartData = [
+  { mes: 'Nov', alag: 45, verde: 12, pot: 8 },
+  { mes: 'Dez', alag: 52, verde: 15, pot: 10 },
+  { mes: 'Jan', alag: 61, verde: 18, pot: 14 },
+  { mes: 'Fev', alag: 48, verde: 22, pot: 16 },
+  { mes: 'Mar', alag: 55, verde: 28, pot: 19 },
+  { mes: 'Abr', alag: 38, verde: 31, pot: 22 },
+];
+
+// ═══ NAVEGAÇÃO ═══
+function mostrarTela(id) {
+  document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
+  document.getElementById(id).classList.add('ativa');
+}
+
+function voltarInicio() { mostrarTela('tela-boas-vindas'); }
+function irParaMapa() { mostrarTela('tela-mapa'); iniciarMapa(); }
+function irParaReporte() { mostrarTela('tela-reporte'); }
+function irParaHistorico() { mostrarTela('tela-historico'); }
+function irParaTecnico() { mostrarTela('tela-tecnico'); }
+function irParaGestor() { mostrarTela('tela-gestor'); setTimeout(animarGestor, 300); }
+function irParaAlertas() { mostrarTela('tela-alertas'); }
+
+// ═══ PERFIL ═══
+function entrarComo(perfil) {
+  perfilAtual = perfil;
+  irParaMapa();
+  const nomes = { cidadao: '👤 Cidadão', tecnico: '🌿 Técnico', gestor: '🏛️ Gestor' };
+  document.getElementById('badge-perfil').textContent = nomes[perfil];
+
+  // Mostrar itens de nav conforme perfil
+  const mostrarTecnico = perfil === 'tecnico';
+  const mostrarGestor = perfil === 'gestor';
+  ['nav-tecnico','nav-tecnico2','nav-tecnico3','nav-tecnico5'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = mostrarTecnico ? 'flex' : 'none';
+  });
+  ['nav-gestor','nav-gestor2','nav-gestor3','nav-gestor5'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = mostrarGestor ? 'flex' : 'none';
+  });
+}
+
+// ═══ MAPA LEAFLET ═══
+function iniciarMapa() {
+  if (mapaIniciado) return;
+  mapaIniciado = true;
+  setTimeout(() => {
+    const el = document.getElementById('mapa-leaflet');
+    if (!el) return;
+    el.style.height = (window.innerHeight - 56 - 60) + 'px';
+
+    mapaObj = L.map('mapa-leaflet', { zoomControl: false }).setView([-22.8935, -43.2712], 13);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri', maxZoom: 19
+    }).addTo(mapaObj);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(mapaObj);
+    renderizarMarcadores('todos');
+  }, 100);
+}
+
+function criarIcone(tipo, nivel) {
+  const cores = { critico: '#1565C0', atencao: '#F59E0B', verde: '#22C55E', potencial: '#A3E635' };
+  const emojis = { alagamento: '💧', verde: '🌳', potencial: '✨' };
+  const cor = tipo === 'alagamento' ? cores[nivel] : (tipo === 'verde' ? cores.verde : cores.potencial);
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:32px;height:32px;background:${cor};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid white">${emojis[tipo]||'📍'}</div>`,
+    iconSize: [32, 32], iconAnchor: [16, 16]
+  });
+}
+
+function renderizarMarcadores(filtro) {
+  if (!mapaObj) return;
+  marcadores.forEach(m => mapaObj.removeLayer(m));
+  marcadores = [];
+  let todos = [];
+  if (filtro === 'todos' || filtro === 'alagamento') todos = todos.concat(pontosAlagamento);
+  if (filtro === 'todos' || filtro === 'verde') todos = todos.concat(pontosVerde);
+  if (filtro === 'todos' || filtro === 'potencial') todos = todos.concat(pontosPotencial);
+
+  todos.forEach(p => {
+    const m = L.marker([p.lat, p.lng], { icon: criarIcone(p.tipo, p.nivel) }).addTo(mapaObj);
+    const tagCor = p.tipo === 'alagamento' ? '#1565C0' : (p.tipo === 'verde' ? '#22C55E' : '#84CC16');
+    const tagLabel = p.tipo === 'alagamento' ? '💧 Alagamento' : (p.tipo === 'verde' ? '🌳 Área Verde' : '✨ Potencial');
+    m.bindPopup(`
+      <div class="popup-custom">
+        <h3>${p.titulo}</h3>
+        <span class="tag" style="background:${tagCor}20;color:${tagCor}">${tagLabel}</span>
+        <p>${p.bairro}${p.area ? ' • ' + p.area : ''}<br>${p.desc}</p>
+        <button class="popup-btn" onclick="irParaReporte()">📸 Reportar aqui</button>
+      </div>
+    `, { maxWidth: 220 });
+    marcadores.push(m);
+  });
+}
+
+function filtrarMapa(tipo, btn) {
+  document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('ativo'));
+  btn.classList.add('ativo');
+  renderizarMarcadores(tipo);
+}
+
+// ═══ REPORTE ═══
+function selecionarTipo(el, tipo) {
+  document.querySelectorAll('.tipo-card').forEach(c => c.classList.remove('selecionado'));
+  el.classList.add('selecionado');
+  tipoSelecionado = tipo;
+}
+
+function simularFoto() {
+  fotoSimulada = !fotoSimulada;
+  const area = document.getElementById('foto-area');
+  const icon = document.getElementById('foto-icon');
+  const texto = document.getElementById('foto-texto');
+  if (fotoSimulada) {
+    area.classList.add('com-foto');
+    icon.textContent = '✅';
+    texto.textContent = 'Foto adicionada! Toque para remover.';
+  } else {
+    area.classList.remove('com-foto');
+    icon.textContent = '📷';
+    texto.textContent = 'Toque para tirar foto ou escolher da galeria';
+  }
+}
+
+function enviarReporte() {
+  const bairro = document.getElementById('select-bairro').value;
+  if (!bairro) { alert('Por favor, selecione o bairro da ocorrência.'); return; }
+  const id = 'ER-2026-' + Math.floor(1000 + Math.random() * 9000);
+  document.getElementById('modal-id').textContent = 'ID: #' + id;
+  document.getElementById('modal-confirmacao').classList.add('visivel');
+}
+
+function fecharModal() {
+  document.getElementById('modal-confirmacao').classList.remove('visivel');
+  irParaMapa();
+}
+
+// ═══ VALIDAÇÃO ═══
+function validarReporte(btn, acao) {
+  const card = btn.closest('.validacao-card');
+  const modal = document.getElementById('modal-validacao');
+  const icon = document.getElementById('modal-val-icon');
+  const titulo = document.getElementById('modal-val-titulo');
+  const desc = document.getElementById('modal-val-desc');
+  if (acao === 'aprovado') {
+    icon.textContent = '✅';
+    titulo.textContent = 'Reporte Aprovado!';
+    desc.textContent = 'O reporte foi validado e georreferenciado no mapa. O cidadão será notificado automaticamente.';
+  } else {
+    icon.textContent = '❌';
+    titulo.textContent = 'Reporte Rejeitado';
+    desc.textContent = 'O reporte foi marcado como inválido. O cidadão receberá uma notificação com a justificativa.';
+  }
+  modal.classList.add('visivel');
+  card.style.opacity = '0.4';
+}
+
+function fecharModalValidacao() {
+  document.getElementById('modal-validacao').classList.remove('visivel');
+}
+
+// ═══ GESTOR — ANIMAÇÕES ═══
+function animarGestor() {
+  // ICVM barra
+  setTimeout(() => {
+    const barra = document.getElementById('icvm-barra');
+    if (barra) barra.style.width = '70%'; // 8.4/12 = 70%
+  }, 200);
+
+  // Tabela bairros
+  const tabela = document.getElementById('tabela-bairros');
+  if (tabela) {
+    tabela.innerHTML = bairrosData.map(b => `
+      <div class="bairro-linha">
+        <span class="bairro-nome">${b.nome}</span>
+        <div class="bairro-barra-bg">
+          <div class="bairro-barra" style="width:${(b.icvm/15)*100}%;background:${b.cor}"></div>
+        </div>
+        <span class="bairro-icvm">${b.icvm}%</span>
+        <span class="bairro-status" style="background:${b.statusCor};color:${b.statusText}">${b.status}</span>
+      </div>
+    `).join('');
+  }
+
+  // Chart
+  const chartEl = document.getElementById('chart-bars');
+  if (chartEl) {
+    const maxVal = Math.max(...chartData.map(d => d.alag + d.verde + d.pot));
+    chartEl.innerHTML = chartData.map(d => `
+      <div class="chart-bar-group">
+        <span class="chart-bar-val">${d.alag+d.verde+d.pot}</span>
+        <div style="display:flex;flex-direction:column;width:100%;gap:1px;flex:1;justify-content:flex-end">
+          <div class="chart-bar" style="height:${(d.pot/maxVal)*60}px;background:#A3E635"></div>
+          <div class="chart-bar" style="height:${(d.verde/maxVal)*60}px;background:#22c55e"></div>
+          <div class="chart-bar" style="height:${(d.alag/maxVal)*60}px;background:#1565C0"></div>
+        </div>
+        <span class="chart-bar-label">${d.mes}</span>
+      </div>
+    `).join('');
+  }
+}
+</script>
+</body>
+</html>
